@@ -650,11 +650,30 @@ h1 {
 
 @media (max-width: 1000px) {
   .planner-layout {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
     grid-template-columns: 1fr;
   }
 
   .map-pane {
-    position: static;
+    order: -1;
+    position: sticky;
+    top: 10px;
+    z-index: 2;
+  }
+
+  .openfreemap-canvas {
+    height: min(44vh, 420px);
+    min-height: 280px;
+  }
+
+  .route-list {
+    max-height: 120px;
+  }
+
+  .map-pane {
+    position: sticky;
   }
 }
 
@@ -675,6 +694,10 @@ h1 {
 
   .planner-pane {
     padding: 10px;
+  }
+
+  .map-pane {
+    top: 8px;
   }
 
   .tabs {
@@ -732,7 +755,7 @@ h1 {
   }
 
   .openfreemap-canvas {
-    height: 360px;
-    min-height: 320px;
+    height: 300px;
+    min-height: 260px;
   }
 }
