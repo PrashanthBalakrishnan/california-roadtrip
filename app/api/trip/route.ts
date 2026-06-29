@@ -41,16 +41,39 @@ function isPlannerState(value: unknown): value is PlannerState {
 
 export const runtime = "nodejs";
 
+function normalizeSummary(summary: unknown): TripSummary {
+  const candidate = (summary || {}) as Partial<TripSummary>;
+  return {
+    title: candidate.title || "",
+    dates: candidate.dates || "",
+    travelers: candidate.travelers || "",
+    route: candidate.route || ""
+  };
+}
+
 export async function GET() {
   try {
     const collection = await getTripPlansCollection();
-    const document = await collection.findOne({ key: DOCUMENT_ID });
+    let document = await collection.findOne({ key: DOCUMENT_ID });
+
+    if (!document) {
+      // Backward compatibility: older saves may not include the stable `key` field.
+      document = await collection.findOne({}, { sort: { updatedAt: -1, _id: -1 } });
+
+      if (document) {
+        await collection.updateOne(
+          { _id: document._id },
+          { $set: { key: DOCUMENT_ID, updatedAt: new Date() } }
+        );
+      }
+    }
 
     if (!document) {
       return NextResponse.json({ data: null });
     }
 
-    const { summary, days, flights, stays, tasks } = document;
+    const { days = [], flights = [], stays = [], tasks = [] } = document;
+    const summary = normalizeSummary(document.summary);
     return NextResponse.json({ data: { summary, days, flights, stays, tasks } });
   } catch {
     return NextResponse.json({ error: "Failed to load trip data." }, { status: 500 });
