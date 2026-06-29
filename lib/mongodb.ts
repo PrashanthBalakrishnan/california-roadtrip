@@ -16,7 +16,10 @@ export async function getTripPlansCollection() {
   const clientPromise =
     global._mongoClientPromise ||
     (() => {
-      const client = new MongoClient(uri);
+      const client = new MongoClient(uri, {
+        connectTimeoutMS: 10000,
+        serverSelectionTimeoutMS: 10000
+      });
       return client.connect();
     })();
 
