@@ -1,0 +1,368 @@
+
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: var(--font-sans); }
+.app { padding: 1rem 0; }
+.header { margin-bottom: 1.5rem; }
+.header h1 { font-size: 20px; font-weight: 500; color: var(--text-primary); }
+.header p { font-size: 14px; color: var(--text-secondary); margin-top: 4px; }
+.tabs { display: flex; gap: 4px; border-bottom: 0.5px solid var(--border); margin-bottom: 1.5rem; }
+.tab { padding: 8px 14px; font-size: 14px; font-weight: 400; color: var(--text-secondary); border: none; background: transparent; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; border-radius: 0; }
+.tab.active { color: var(--text-primary); border-bottom-color: var(--text-primary); font-weight: 500; }
+.tab:hover:not(.active) { color: var(--text-primary); }
+.day-card { background: var(--surface-2); border: 0.5px solid var(--border); border-radius: 12px; margin-bottom: 12px; overflow: hidden; }
+.day-header { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; cursor: pointer; user-select: none; }
+.day-header:hover { background: var(--surface-1); }
+.day-title { display: flex; align-items: center; gap: 10px; }
+.day-badge { font-size: 11px; font-weight: 500; padding: 3px 8px; border-radius: 99px; }
+.badge-travel { background: var(--bg-accent); color: var(--text-accent); }
+.badge-city { background: #EEEDFE; color: #3C3489; }
+.badge-nature { background: #E1F5EE; color: #085041; }
+.badge-drive { background: #FAEEDA; color: #633806; }
+.badge-fly { background: var(--bg-warning); color: var(--text-warning); }
+.day-name { font-size: 15px; font-weight: 500; color: var(--text-primary); }
+.day-date { font-size: 12px; color: var(--text-secondary); }
+.chevron { font-size: 16px; color: var(--text-muted); transition: transform 0.2s; }
+.chevron.open { transform: rotate(180deg); }
+.day-body { border-top: 0.5px solid var(--border); padding: 12px 16px; }
+.item-row { display: flex; align-items: flex-start; gap: 10px; padding: 7px 0; border-bottom: 0.5px solid var(--border); }
+.item-row:last-child { border-bottom: none; }
+.item-icon { font-size: 16px; color: var(--text-secondary); margin-top: 1px; min-width: 20px; }
+.item-text { flex: 1; font-size: 14px; color: var(--text-primary); line-height: 1.5; }
+.item-note { font-size: 12px; color: var(--text-secondary); margin-top: 2px; }
+.item-actions { display: flex; gap: 6px; align-items: center; }
+.btn-icon { background: transparent; border: none; cursor: pointer; color: var(--text-muted); padding: 2px 4px; border-radius: 4px; font-size: 14px; }
+.btn-icon:hover { color: var(--text-danger); background: var(--bg-danger); }
+.btn-maps { background: transparent; border: 0.5px solid var(--border-accent); color: var(--text-accent); font-size: 12px; padding: 2px 8px; border-radius: var(--radius); cursor: pointer; white-space: nowrap; text-decoration: none; display: inline-flex; align-items: center; gap: 3px; }
+.btn-maps:hover { background: var(--bg-accent); }
+.add-row { display: flex; gap: 8px; margin-top: 10px; }
+.add-input { flex: 1; font-size: 13px; padding: 6px 10px; border: 0.5px solid var(--border); border-radius: var(--radius); background: var(--surface-1); color: var(--text-primary); }
+.add-input:focus { outline: none; border-color: var(--border-accent); }
+.add-btn { font-size: 13px; padding: 6px 12px; border: 0.5px solid var(--border-strong); border-radius: var(--radius); background: transparent; cursor: pointer; color: var(--text-primary); }
+.add-btn:hover { background: var(--surface-1); }
+.checklist { display: flex; flex-direction: column; gap: 8px; }
+.check-item { display: flex; align-items: flex-start; gap: 10px; padding: 10px 14px; background: var(--surface-2); border: 0.5px solid var(--border); border-radius: 8px; }
+.check-item input[type=checkbox] { margin-top: 2px; cursor: pointer; }
+.check-item label { font-size: 14px; color: var(--text-primary); cursor: pointer; line-height: 1.5; flex: 1; }
+.check-item.done label { text-decoration: line-through; color: var(--text-muted); }
+.priority-dot { width: 8px; height: 8px; border-radius: 50%; margin-top: 5px; flex-shrink: 0; }
+.dot-red { background: #E24B4A; }
+.dot-yellow { background: #EF9F27; }
+.dot-green { background: #639922; }
+.flights-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px; }
+.flight-card { background: var(--surface-2); border: 0.5px solid var(--border); border-radius: 12px; padding: 14px 16px; }
+.flight-route { font-size: 16px; font-weight: 500; color: var(--text-primary); margin-bottom: 6px; }
+.flight-detail { font-size: 13px; color: var(--text-secondary); line-height: 1.7; }
+.flight-cost { font-size: 15px; font-weight: 500; color: var(--text-accent); margin-top: 8px; }
+.accom-grid { display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px; }
+.accom-row { display: flex; align-items: center; gap: 12px; padding: 10px 14px; background: var(--surface-2); border: 0.5px solid var(--border); border-radius: 8px; }
+.accom-nights { font-size: 12px; color: var(--text-secondary); min-width: 90px; }
+.accom-place { font-size: 14px; font-weight: 500; color: var(--text-primary); flex: 1; }
+.accom-status { font-size: 11px; padding: 2px 8px; border-radius: 99px; }
+.status-tbd { background: var(--bg-warning); color: var(--text-warning); }
+.status-link { background: var(--bg-success); color: var(--text-success); }
+.section-label { font-size: 12px; font-weight: 500; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px; }
+</style>
+
+<div class="app">
+  <h2 class="sr-only">California road trip planner — August 6–14, 2026, six travelers</h2>
+
+  <div class="header">
+    <h1><i class="ti ti-palm-tree" aria-hidden="true" style="margin-right:6px;color:#1D9E75"></i>California road trip</h1>
+    <p>Aug 6–14, 2026 &nbsp;·&nbsp; 6 travelers &nbsp;·&nbsp; EWR → LAX → SFO → EWR</p>
+  </div>
+
+  <div class="tabs">
+    <button class="tab active" onclick="showTab('itinerary',this)">Itinerary</button>
+    <button class="tab" onclick="showTab('logistics',this)">Flights & stays</button>
+    <button class="tab" onclick="showTab('checklist',this)">To-do list</button>
+  </div>
+
+  <div id="tab-itinerary">
+    <div id="days-container"></div>
+  </div>
+
+  <div id="tab-logistics" style="display:none">
+    <p class="section-label">Flights</p>
+    <div class="flights-grid">
+      <div class="flight-card">
+        <div class="flight-route"><i class="ti ti-plane-departure" aria-hidden="true" style="font-size:14px;margin-right:4px"></i>EWR → LAX</div>
+        <div class="flight-detail">Thu Aug 6 · Depart 4:00 PM<br>Arrive 6:42 PM · UA 2238<br>Basic Economy (non-changeable)</div>
+        <div class="flight-cost">~$354 / person</div>
+      </div>
+      <div class="flight-card">
+        <div class="flight-route"><i class="ti ti-plane-arrival" aria-hidden="true" style="font-size:14px;margin-right:4px"></i>SFO → EWR</div>
+        <div class="flight-detail">Sat Aug 15 · Depart 10:15 AM<br>Arrive 7:00 PM · UA 713<br>Basic Economy (non-changeable)</div>
+        <div class="flight-cost">~$481 / person</div>
+      </div>
+    </div>
+    <p class="section-label">Accommodation</p>
+    <div class="accom-grid" id="accom-grid"></div>
+  </div>
+
+  <div id="tab-checklist" style="display:none">
+    <div class="checklist" id="checklist-container"></div>
+  </div>
+</div>
+
+<script>
+const DAYS = [
+  {
+    id:0, label:"Travel day", date:"Thu, Aug 6", badge:"fly", badgeLabel:"Fly in",
+    items:[
+      {icon:"ti-plane-departure", text:"Depart EWR 4:00 PM → arrive LAX 6:42 PM", maps:null},
+      {icon:"ti-car", text:"Pick up rental car at LAX (SUV or minivan for 6)", maps:"Los Angeles International Airport"},
+      {icon:"ti-home", text:"Check into Airbnb", maps:null},
+      {icon:"ti-tools-kitchen-2", text:"In-N-Out Burger — Double-Double, Animal Style", maps:"In-N-Out Burger Los Angeles"},
+      {icon:"ti-moon", text:"Rest up — no major sightseeing tonight", maps:null},
+    ]
+  },
+  {
+    id:1, label:"Los Angeles", date:"Fri, Aug 7", badge:"city", badgeLabel:"City",
+    items:[
+      {icon:"ti-coffee", text:"Breakfast and coffee near Airbnb", maps:null},
+      {icon:"ti-telescope", text:"Griffith Observatory / Hollywood Sign", maps:"Griffith Observatory Los Angeles"},
+      {icon:"ti-star", text:"Hollywood Walk of Fame", maps:"Hollywood Walk of Fame"},
+      {icon:"ti-leaf", text:"Erewhon — smoothies and LA grocery experience", maps:"Erewhon Market Los Angeles"},
+      {icon:"ti-car", text:"Beverly Hills drive-by — Rodeo Drive, Mulholland Dr", maps:"Rodeo Drive Beverly Hills"},
+      {icon:"ti-tools-kitchen-2", text:"Lunch", maps:null},
+      {icon:"ti-ice-cream", text:"Happy Ice Italian Ice", maps:"Happy Ice Los Angeles"},
+      {icon:"ti-bicycle", text:"Venice Beach bicycle ride", maps:"Venice Beach Los Angeles"},
+      {icon:"ti-sunset", text:"Santa Monica Pier & Beach — golden hour sunset", maps:"Santa Monica Pier"},
+      {icon:"ti-tools-kitchen-2", text:"Dinner", maps:null},
+      {icon:"ti-taco", text:"Mexican spot for carne asada fries (for Jen!)", maps:"carne asada fries Los Angeles"},
+      {icon:"ti-building", text:"LA County Museum of Art (lights and pillars)", maps:"LACMA Los Angeles"},
+      {icon:"ti-circle", text:"Randy's Donuts — late night iconic giant donut", maps:"Randy's Donuts Los Angeles"},
+    ]
+  },
+  {
+    id:2, label:"Los Angeles half-day", date:"Sat, Aug 8", badge:"city", badgeLabel:"City",
+    items:[
+      {icon:"ti-coffee", text:"Breakfast and coffee before hitting the road", maps:null},
+      {icon:"ti-waves", text:"Malibu drive — El Matador State Beach (check out)", maps:"El Matador State Beach Malibu"},
+      {icon:"ti-fish", text:"Lunch at Malibu Seafood", maps:"Malibu Seafood"},
+      {icon:"ti-car", text:"Drive to Joshua Tree — depart ~2 PM (~2.5 hrs)", maps:"Joshua Tree National Park"},
+      {icon:"ti-mountain", text:"Explore Joshua Tree at sunset / star gazing", maps:"Joshua Tree National Park"},
+      {icon:"ti-home", text:"Check into Airbnb near Joshua Tree", maps:null},
+    ]
+  },
+  {
+    id:3, label:"Joshua Tree → Sequoia", date:"Sun, Aug 9", badge:"drive", badgeLabel:"Drive day",
+    items:[
+      {icon:"ti-car", text:"Depart 9 AM — drive to Sequoia (~5 hours)", maps:"Sequoia National Park"},
+      {icon:"ti-tree", text:"Arrive mid-afternoon — check into Airbnb", maps:null},
+      {icon:"ti-walk", text:"Afternoon walk: Giant Forest area, first sequoias", maps:"Giant Forest Sequoia National Park"},
+      {icon:"ti-tools-kitchen-2", text:"Dinner at Airbnb or Lodgepole area", maps:"Lodgepole Sequoia National Park"},
+    ]
+  },
+  {
+    id:4, label:"Sequoia & Kings Canyon", date:"Mon, Aug 10", badge:"nature", badgeLabel:"Nature",
+    items:[
+      {icon:"ti-tree", text:"General Sherman Tree — largest tree on Earth by volume", maps:"General Sherman Tree Sequoia"},
+      {icon:"ti-mountain", text:"Moro Rock — steep climb, panoramic Sierra Nevada views", maps:"Moro Rock Sequoia"},
+      {icon:"ti-road", text:"Kings Canyon Scenic Byway drive", maps:"Kings Canyon Scenic Byway"},
+      {icon:"ti-walk", text:"Zumwalt Meadow loop — easy 1.5 mi, beautiful valley floor", maps:"Zumwalt Meadow Kings Canyon"},
+      {icon:"ti-car", text:"Late afternoon: drive toward Yosemite (~2 hr 35 min)", maps:"Yosemite National Park"},
+      {icon:"ti-home", text:"Check into Yosemite area Airbnb (sleeps 6)", maps:null},
+    ]
+  },
+  {
+    id:5, label:"Yosemite National Park", date:"Tue, Aug 11", badge:"nature", badgeLabel:"Nature",
+    items:[
+      {icon:"ti-sunrise", text:"Early start — Yosemite crowds fast in August", maps:null},
+      {icon:"ti-photo", text:"Tunnel View — classic look at El Capitan + Half Dome", maps:"Tunnel View Yosemite"},
+      {icon:"ti-waterfall", text:"Yosemite Falls trail — lower loop or push to upper falls", maps:"Yosemite Falls Trail"},
+      {icon:"ti-walk", text:"Valley floor loop — Mirror Lake, El Cap Meadow", maps:"El Capitan Meadow Yosemite"},
+      {icon:"ti-sunset", text:"Glacier Point Road for sunset views (check if open)", maps:"Glacier Point Yosemite"},
+      {icon:"ti-tools-kitchen-2", text:"Dinner at Yosemite Valley Lodge or Curry Village", maps:"Curry Village Yosemite"},
+    ]
+  },
+  {
+    id:6, label:"Yosemite → Big Sur", date:"Wed, Aug 12", badge:"drive", badgeLabel:"Drive day",
+    items:[
+      {icon:"ti-car", text:"Depart Yosemite morning — drive to Big Sur (~3.5 hrs)", maps:"Big Sur California"},
+      {icon:"ti-camera", text:"Bixby Creek Bridge — iconic Big Sur photo stop", maps:"Bixby Creek Bridge Big Sur"},
+      {icon:"ti-waterfall", text:"McWay Falls — easy 0.5 mi walk to waterfall over ocean", maps:"McWay Falls Julia Pfeiffer Burns State Park"},
+      {icon:"ti-fish", text:"Point Lobos State Reserve — tide pools, seals, coastline", maps:"Point Lobos State Reserve"},
+      {icon:"ti-road", text:"Drive CA-1 coastal road — windows down, peak California", maps:"Pacific Coast Highway Big Sur"},
+      {icon:"ti-road", text:"17 Mile Drive — 17 stunning stops along the coast", maps:"17 Mile Drive Pebble Beach"},
+      {icon:"ti-home", text:"Overnight near Big Sur or Carmel-by-the-Sea", maps:"Carmel-by-the-Sea California"},
+    ]
+  },
+  {
+    id:7, label:"Carmel → San Francisco", date:"Thu, Aug 13", badge:"city", badgeLabel:"City",
+    items:[
+      {icon:"ti-walk", text:"Morning stroll in Carmel-by-the-Sea — European-style village", maps:"Carmel-by-the-Sea California"},
+      {icon:"ti-car", text:"Drive to San Francisco (~2 hr 15 min)", maps:"San Francisco California"},
+      {icon:"ti-bridge", text:"Golden Gate Bridge walk or vista point", maps:"Golden Gate Bridge San Francisco"},
+      {icon:"ti-train", text:"Cable car ride through Union Square / Powell St", maps:"Powell-Hyde Cable Car San Francisco"},
+      {icon:"ti-fish", text:"Fisherman's Wharf — clam chowder bread bowl", maps:"Fisherman's Wharf San Francisco"},
+      {icon:"ti-building-community", text:"Evening: North Beach, Chinatown, or Mission District dinner", maps:"North Beach San Francisco"},
+      {icon:"ti-home", text:"Stay near SFO — early flight tomorrow (depart 10:15 AM)", maps:"hotels near SFO airport"},
+    ]
+  },
+  {
+    id:8, label:"San Francisco day", date:"Fri, Aug 14", badge:"city", badgeLabel:"City",
+    items:[
+      {icon:"ti-sunset", text:"Sunset at Mount Tamalpais (cloud inversion views)", maps:"Mount Tamalpais State Park"},
+      {icon:"ti-car", text:"Return rental car at SFO", maps:"San Francisco International Airport"},
+    ]
+  },
+  {
+    id:9, label:"Fly home", date:"Sat, Aug 15", badge:"fly", badgeLabel:"Fly out",
+    items:[
+      {icon:"ti-alarm", text:"Wake up early — depart hotel by 8:00 AM latest", maps:null},
+      {icon:"ti-car", text:"Return rental car at SFO", maps:"San Francisco International Airport"},
+      {icon:"ti-plane-departure", text:"Depart SFO 10:15 AM → arrive EWR 7:00 PM · UA 713", maps:null},
+    ]
+  },
+];
+
+const ACCOMMODATION = [
+  {nights:"Aug 6–8 (2 nights)", place:"Los Angeles", status:"link", label:"Airbnb linked", url:"https://www.airbnb.com/rooms/1667667463033469869"},
+  {nights:"Aug 8–9 (1 night)", place:"Joshua Tree area", status:"link", label:"Airbnb linked", url:"https://www.airbnb.com/rooms/1294431618954760063"},
+  {nights:"Aug 9–10 (1 night)", place:"Sequoia / Kings Canyon area", status:"link", label:"Airbnb linked", url:"https://www.airbnb.com/rooms/663888728353284965"},
+  {nights:"Aug 10–11 (2 nights)", place:"Yosemite / Mariposa area", status:"link", label:"Airbnb linked", url:"https://www.airbnb.com/rooms/663888728353284965"},
+  {nights:"Aug 12 (1 night)", place:"Big Sur / Carmel area", status:"tbd", label:"TBD — book now"},
+  {nights:"Aug 13–14 (2 nights)", place:"San Francisco (near SFO)", status:"tbd", label:"TBD"},
+];
+
+const CHECKLIST = [
+  {text:"Book Sequoia and Big Sur / Carmel Airbnbs immediately — fills months in advance", priority:"red", done:false},
+  {text:"Get Yosemite timed entry permits on recreation.gov", priority:"red", done:false},
+  {text:"Book rental car at LAX for 6 (SUV or minivan) — return at SFO", priority:"red", done:false},
+  {text:"Confirm LA Airbnb (Aug 6–8) and share with group", priority:"yellow", done:false},
+  {text:"Confirm Yosemite Airbnb (Aug 10–11)", priority:"yellow", done:false},
+  {text:"Research taqueria for carne asada fries near LA Airbnb (for Jen!)", priority:"green", done:false},
+  {text:"Check Glacier Point Road open status in August", priority:"green", done:false},
+  {text:"Buy National Parks annual pass ($80) — covers Sequoia, Kings Canyon, Yosemite", priority:"green", done:false},
+];
+
+const extraItems = {};
+const checkState = {};
+
+function mapsUrl(query) {
+  return "https://www.google.com/maps/search/" + encodeURIComponent(query);
+}
+
+function renderDays() {
+  const container = document.getElementById("days-container");
+  container.innerHTML = "";
+  DAYS.forEach(day => {
+    const extra = extraItems[day.id] || [];
+    const allItems = [...day.items, ...extra];
+    const isOpen = day.id === 0;
+    const badgeClass = "badge-" + day.badge;
+    const div = document.createElement("div");
+    div.className = "day-card";
+    div.id = "daycard-" + day.id;
+    div.innerHTML = `
+      <div class="day-header" onclick="toggleDay(${day.id})">
+        <div class="day-title">
+          <span class="day-badge ${badgeClass}">${day.badgeLabel}</span>
+          <div>
+            <div class="day-name">Day ${day.id === 9 ? "9" : day.id} · ${day.label}</div>
+            <div class="day-date">${day.date}</div>
+          </div>
+        </div>
+        <i class="ti ti-chevron-down chevron ${isOpen ? 'open' : ''}" id="chev-${day.id}" aria-hidden="true"></i>
+      </div>
+      <div class="day-body" id="body-${day.id}" style="${isOpen ? '' : 'display:none'}">
+        <div id="items-${day.id}">
+          ${allItems.map((item, idx) => renderItem(day.id, item, idx, idx >= day.items.length)).join("")}
+        </div>
+        <div class="add-row">
+          <input class="add-input" id="input-${day.id}" placeholder="Add an activity..." onkeydown="if(event.key==='Enter') addItem(${day.id})"/>
+          <button class="add-btn" onclick="addItem(${day.id})"><i class="ti ti-plus" aria-hidden="true"></i> Add</button>
+        </div>
+      </div>
+    `;
+    container.appendChild(div);
+  });
+}
+
+function renderItem(dayId, item, idx, isCustom) {
+  const mapsBtn = item.maps ? `<a class="btn-maps" href="${mapsUrl(item.maps)}" target="_blank"><i class="ti ti-map-pin" style="font-size:11px" aria-hidden="true"></i> Maps</a>` : "";
+  const delBtn = isCustom ? `<button class="btn-icon" onclick="removeItem(${dayId},${idx})" title="Remove"><i class="ti ti-trash" aria-hidden="true"></i></button>` : "";
+  return `<div class="item-row" id="item-${dayId}-${idx}">
+    <i class="ti ${item.icon} item-icon" aria-hidden="true"></i>
+    <span class="item-text">${item.text}</span>
+    <div class="item-actions">${mapsBtn}${delBtn}</div>
+  </div>`;
+}
+
+function toggleDay(id) {
+  const body = document.getElementById("body-" + id);
+  const chev = document.getElementById("chev-" + id);
+  const open = body.style.display !== "none";
+  body.style.display = open ? "none" : "";
+  chev.classList.toggle("open", !open);
+}
+
+function addItem(dayId) {
+  const input = document.getElementById("input-" + dayId);
+  const text = input.value.trim();
+  if (!text) return;
+  if (!extraItems[dayId]) extraItems[dayId] = [];
+  extraItems[dayId].push({icon:"ti-map-pin", text, maps: text});
+  input.value = "";
+  renderDays();
+  document.getElementById("body-" + dayId).style.display = "";
+  document.getElementById("chev-" + dayId).classList.add("open");
+}
+
+function removeItem(dayId, idx) {
+  const baseLen = DAYS[dayId].items.length;
+  const extraIdx = idx - baseLen;
+  if (extraIdx >= 0 && extraItems[dayId]) {
+    extraItems[dayId].splice(extraIdx, 1);
+    renderDays();
+    document.getElementById("body-" + dayId).style.display = "";
+    document.getElementById("chev-" + dayId).classList.add("open");
+  }
+}
+
+function renderAccom() {
+  const grid = document.getElementById("accom-grid");
+  grid.innerHTML = ACCOMMODATION.map(a => {
+    const statusHtml = a.status === "link"
+      ? `<a href="${a.url}" target="_blank" class="accom-status status-link" style="text-decoration:none">${a.label} <i class="ti ti-external-link" style="font-size:10px" aria-hidden="true"></i></a>`
+      : `<span class="accom-status status-tbd">${a.label}</span>`;
+    return `<div class="accom-row">
+      <span class="accom-nights">${a.nights}</span>
+      <span class="accom-place">${a.place}</span>
+      ${statusHtml}
+    </div>`;
+  }).join("");
+}
+
+function renderChecklist() {
+  const container = document.getElementById("checklist-container");
+  container.innerHTML = CHECKLIST.map((item, i) => {
+    const checked = checkState[i] || false;
+    return `<div class="check-item ${checked ? 'done' : ''}" id="check-${i}">
+      <div class="priority-dot dot-${item.priority}"></div>
+      <input type="checkbox" id="chk-${i}" ${checked ? 'checked' : ''} onchange="toggleCheck(${i})"/>
+      <label for="chk-${i}">${item.text}</label>
+    </div>`;
+  }).join("");
+}
+
+function toggleCheck(i) {
+  checkState[i] = !checkState[i];
+  const row = document.getElementById("check-" + i);
+  if (checkState[i]) row.classList.add("done"); else row.classList.remove("done");
+}
+
+function showTab(name, btn) {
+  ["itinerary","logistics","checklist"].forEach(t => {
+    document.getElementById("tab-" + t).style.display = t === name ? "" : "none";
+  });
+  document.querySelectorAll(".tab").forEach(b => b.classList.remove("active"));
+  btn.classList.add("active");
+}
+
+renderDays();
+renderAccom();
+renderChecklist();
+</script>
