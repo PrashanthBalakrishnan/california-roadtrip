@@ -14,6 +14,8 @@ export type TripItem = {
   text: string;
   maps: string | null;
   routeStop: boolean;
+  routePosition?: "start" | "mid" | "end";
+  routeOrder?: number;
 };
 
 export type TripDay = {

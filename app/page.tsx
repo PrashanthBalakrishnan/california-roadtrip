@@ -52,8 +52,8 @@ type EditingMap = Record<string | number, boolean>;
 type NewItemMap = Record<string | number, string>;
 type TabName = "itinerary" | "logistics" | "checklist";
 type RouteScope = "day" | "trip";
-type RouteOrderMode = "itinerary" | "distance";
 type Coordinates = [number, number];
+type RoutePosition = "start" | "mid" | "end";
 type RoutePoint = {
   itemId: string | null;
   isCarryOverStart?: boolean;
@@ -65,6 +65,7 @@ type RouteStopEntry = {
   itemId: string | null;
   isCarryOverStart?: boolean;
   name: string;
+  routeOrder?: number;
 };
 
 type CoordinatesMap = Record<string, Coordinates>;
@@ -199,132 +200,6 @@ function routeDistanceKm(points: RoutePoint[]) {
   return total;
 }
 
-function optimizeRoutePointsExact(points: RoutePoint[]) {
-  if (points.length <= 2) return points;
-
-  const innerCount = points.length - 1;
-  const maxMask = 1 << innerCount;
-  const dp = Array.from({ length: maxMask }, () => new Float64Array(innerCount).fill(Number.POSITIVE_INFINITY));
-  const parent = Array.from({ length: maxMask }, () => new Int16Array(innerCount).fill(-1));
-
-  for (let end = 0; end < innerCount; end += 1) {
-    const mask = 1 << end;
-    dp[mask][end] = distanceKm(points[0].coordinates, points[end + 1].coordinates);
-  }
-
-  for (let mask = 1; mask < maxMask; mask += 1) {
-    for (let end = 0; end < innerCount; end += 1) {
-      if ((mask & (1 << end)) === 0) continue;
-
-      const prevMask = mask ^ (1 << end);
-      if (prevMask === 0) continue;
-
-      let bestDistance = Number.POSITIVE_INFINITY;
-      let bestPrev = -1;
-
-      for (let prevEnd = 0; prevEnd < innerCount; prevEnd += 1) {
-        if ((prevMask & (1 << prevEnd)) === 0) continue;
-
-        const candidateDistance =
-          dp[prevMask][prevEnd] + distanceKm(points[prevEnd + 1].coordinates, points[end + 1].coordinates);
-
-        if (candidateDistance < bestDistance) {
-          bestDistance = candidateDistance;
-          bestPrev = prevEnd;
-        }
-      }
-
-      dp[mask][end] = bestDistance;
-      parent[mask][end] = bestPrev;
-    }
-  }
-
-  const fullMask = maxMask - 1;
-  let end = 0;
-  let bestDistance = Number.POSITIVE_INFINITY;
-
-  for (let candidateEnd = 0; candidateEnd < innerCount; candidateEnd += 1) {
-    if (dp[fullMask][candidateEnd] < bestDistance) {
-      bestDistance = dp[fullMask][candidateEnd];
-      end = candidateEnd;
-    }
-  }
-
-  const orderedIndices: number[] = [0];
-  const reversePath: number[] = [];
-  let mask = fullMask;
-
-  while (mask && end >= 0) {
-    reversePath.push(end + 1);
-    const previous = parent[mask][end];
-    mask ^= 1 << end;
-    end = previous;
-  }
-
-  reversePath.reverse();
-  orderedIndices.push(...reversePath);
-  return orderedIndices.map((index) => points[index]);
-}
-
-function optimizeRoutePointsHeuristic(points: RoutePoint[]) {
-  if (points.length <= 2) return points;
-
-  const ordered: RoutePoint[] = [points[0]];
-  const remaining = points.slice(1);
-
-  while (remaining.length) {
-    const last = ordered[ordered.length - 1];
-    let nearestIndex = 0;
-    let nearestDistance = Number.POSITIVE_INFINITY;
-
-    for (let index = 0; index < remaining.length; index += 1) {
-      const candidateDistance = distanceKm(last.coordinates, remaining[index].coordinates);
-      if (candidateDistance < nearestDistance) {
-        nearestDistance = candidateDistance;
-        nearestIndex = index;
-      }
-    }
-
-    ordered.push(remaining.splice(nearestIndex, 1)[0]);
-  }
-
-  for (let pass = 0; pass < 3; pass += 1) {
-    let improved = false;
-
-    for (let left = 1; left < ordered.length - 2; left += 1) {
-      for (let right = left + 1; right < ordered.length - 1; right += 1) {
-        const currentDistance =
-          distanceKm(ordered[left - 1].coordinates, ordered[left].coordinates) +
-          distanceKm(ordered[right].coordinates, ordered[right + 1].coordinates);
-        const swappedDistance =
-          distanceKm(ordered[left - 1].coordinates, ordered[right].coordinates) +
-          distanceKm(ordered[left].coordinates, ordered[right + 1].coordinates);
-
-        if (swappedDistance + 0.001 < currentDistance) {
-          const segment = ordered.slice(left, right + 1).reverse();
-          ordered.splice(left, segment.length, ...segment);
-          improved = true;
-        }
-      }
-    }
-
-    if (!improved) break;
-  }
-
-  return ordered;
-}
-
-function optimizeRoutePoints(points: RoutePoint[]) {
-  if (points.length <= 2) return points;
-
-  // Exact shortest path becomes expensive quickly, so use it for smaller routes.
-  if (points.length <= 11) {
-    return optimizeRoutePointsExact(points);
-  }
-
-  return optimizeRoutePointsHeuristic(points);
-}
-
 function getLastMappedStopBeforeDay(days: EditableTripDay[], activeDayIndex: number) {
   for (let dayIndex = activeDayIndex - 1; dayIndex >= 0; dayIndex -= 1) {
     const day = days[dayIndex];
@@ -349,9 +224,39 @@ function routePointsFromStops(entries: RouteStopEntry[], dynamicCoordinates: Coo
   });
 }
 
+function sortTripItems(items: EditableTripItem[]) {
+  return [...items].sort((left, right) => {
+    const leftOrder = left.routeOrder ?? Number.MAX_SAFE_INTEGER;
+    const rightOrder = right.routeOrder ?? Number.MAX_SAFE_INTEGER;
+    const orderDifference = leftOrder - rightOrder;
+    if (orderDifference !== 0) return orderDifference;
+
+    return left.id.localeCompare(right.id);
+  });
+}
+
+function renumberDayRouteItems(items: EditableTripItem[], itemId: string, nextOrder: number) {
+  const routeItems = items.filter((item) => item.routeStop && item.maps);
+  const movingItem = routeItems.find((item) => item.id === itemId);
+  if (!movingItem) return items;
+
+  const ordered = sortTripItems(routeItems.filter((item) => item.id !== itemId));
+  const normalizedOrder = Math.max(1, Math.min(nextOrder, routeItems.length));
+  ordered.splice(normalizedOrder - 1, 0, movingItem);
+
+  const reindexed = ordered.map((item, index) => ({ ...item, routeOrder: index + 1 }));
+  const reindexedById = new Map(reindexed.map((item) => [item.id, item] as const));
+
+  return items.map((item) => (reindexedById.has(item.id) ? { ...item, ...reindexedById.get(item.id)! } : item));
+}
+
 function routeEntryFromItem(item: EditableTripItem): RouteStopEntry | null {
   if (!item.routeStop || !item.maps) return null;
-  return { itemId: item.id, name: item.maps };
+  return {
+    itemId: item.id,
+    name: item.maps,
+    routeOrder: item.routeOrder ?? 0
+  };
 }
 
 async function geocodeStop(stop: string): Promise<Coordinates | null> {
@@ -394,6 +299,8 @@ function normalizeDays(days: TripDay[]): EditableTripDay[] {
       icon: item.icon || "custom",
       maps: item.maps || "",
       routeStop: item.routeStop ?? Boolean(item.maps),
+      routePosition: item.routePosition || "mid",
+      routeOrder: item.routeOrder ?? itemIndex + 1,
       id: item.id || `day-${day.id ?? dayIndex}-item-${itemIndex}`
     }))
   }));
@@ -558,12 +465,12 @@ export default function Home() {
   const [editingTasks, setEditingTasks] = useState<EditingMap>({});
   const [draggingDayId, setDraggingDayId] = useState<number | null>(null);
   const [routeScope, setRouteScope] = useState<RouteScope>("day");
-  const [routeOrderMode, setRouteOrderMode] = useState<RouteOrderMode>("distance");
   const [activeDay, setActiveDay] = useState(0);
   const [newItems, setNewItems] = useState<NewItemMap>({});
   const [dynamicCoordinates, setDynamicCoordinates] = useState<CoordinatesMap>({});
   const [isResolvingRoute, setIsResolvingRoute] = useState(false);
   const [isHydrated, setIsHydrated] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -624,10 +531,19 @@ export default function Home() {
     return () => window.clearTimeout(timeout);
   }, [days, flights, isHydrated, stays, summary, tasks]);
 
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+
+    document.body.classList.toggle("drawer-open", isMobileMenuOpen);
+    return () => {
+      document.body.classList.remove("drawer-open");
+    };
+  }, [isMobileMenuOpen]);
+
   const routeStops = useMemo(() => {
     if (routeScope === "trip") {
       return days.flatMap((day) =>
-        day.items
+        sortTripItems(day.items)
           .map(routeEntryFromItem)
           .filter((stop): stop is RouteStopEntry => Boolean(stop))
       );
@@ -636,13 +552,19 @@ export default function Home() {
     const activeDayIndex = days.findIndex((day) => day.id === activeDay);
     if (activeDayIndex < 0) return [];
 
-    const dayStops = days[activeDayIndex].items
+    const dayStops = sortTripItems(days[activeDayIndex].items)
       .map(routeEntryFromItem)
       .filter((stop): stop is RouteStopEntry => Boolean(stop));
 
+    if (!dayStops.length) {
+      return [];
+    }
+
     const previousStop = getLastMappedStopBeforeDay(days, activeDayIndex);
-    if (!previousStop || !dayStops.length) {
-      return dayStops;
+  const dayRoute = dayStops;
+
+    if (!previousStop) {
+      return dayRoute;
     }
 
     return [
@@ -651,7 +573,7 @@ export default function Home() {
         isCarryOverStart: true,
         name: previousStop
       },
-      ...dayStops
+      ...dayRoute
     ];
   }, [activeDay, days, routeScope]);
 
@@ -697,10 +619,7 @@ export default function Home() {
   }, [dynamicCoordinates, routeStops]);
 
   const routePoints = useMemo(() => routePointsFromStops(routeStops, dynamicCoordinates), [dynamicCoordinates, routeStops]);
-  const displayRoutePoints = useMemo(
-    () => (routeOrderMode === "distance" ? optimizeRoutePoints(routePoints) : routePoints),
-    [routeOrderMode, routePoints]
-  );
+  const displayRoutePoints = routePoints;
   const routeSequenceByItemId = useMemo(() => {
     const sequence: Record<string, number> = {};
     let itemSequence = 1;
@@ -732,6 +651,14 @@ export default function Home() {
       else next.add(dayId);
       return next;
     });
+  }
+
+  function openDaysDrawer() {
+    setIsMobileMenuOpen(true);
+  }
+
+  function closeDaysDrawer() {
+    setIsMobileMenuOpen(false);
   }
 
   function updateDay(dayId: number, patch: Partial<EditableTripDay>) {
@@ -806,6 +733,17 @@ export default function Home() {
     setActiveDay(dayId);
   }
 
+  function updateItemRouteOrder(dayId: number, itemId: string, nextOrder: number) {
+    setDays((current) =>
+      current.map((day) =>
+        day.id === dayId
+          ? { ...day, items: renumberDayRouteItems(day.items, itemId, nextOrder) }
+          : day
+      )
+    );
+    setActiveDay(dayId);
+  }
+
   function addItem(dayId: number) {
     const text = (newItems[dayId] || "").trim();
     if (!text) return;
@@ -815,6 +753,7 @@ export default function Home() {
       icon: "custom",
       text,
       maps: text,
+      routeOrder: sortTripItems(days.find((day) => day.id === dayId)?.items || []).filter((item) => item.routeStop && item.maps).length + 1,
       routeStop: true
     };
 
@@ -887,8 +826,19 @@ export default function Home() {
         </a>
       </section>
 
+      {isMobileMenuOpen && <button className="planner-backdrop" aria-label="Close days menu" onClick={closeDaysDrawer} type="button" />}
+
       <section className="planner-layout">
-        <div className="planner-pane">
+        <div className={`planner-pane ${isMobileMenuOpen ? "mobile-open" : ""}`}>
+          <div className="mobile-drawer-header">
+            <div>
+              <p className="section-label">Planner</p>
+              <strong>Days</strong>
+            </div>
+            <button className="edit-btn mobile-drawer-close" onClick={closeDaysDrawer} type="button">
+              Close
+            </button>
+          </div>
           <nav className="tabs" aria-label="Planner sections">
             {([
               ["itinerary", "Itinerary"],
@@ -1006,7 +956,7 @@ export default function Home() {
                         </div>
                       )}
 
-                      {day.items.map((item) => (
+                      {sortTripItems(day.items).map((item) => (
                         <div className={`item-row ${editingItems[item.id] ? "editable-row" : ""}`} key={item.id}>
                           <span className={`item-icon ${routeSequenceByItemId[item.id] ? "on-route" : ""}`}>
                             {routeSequenceByItemId[item.id] || iconLabels[item.icon] || "P"}
@@ -1037,6 +987,16 @@ export default function Home() {
                               >
                                 {item.routeStop ? "On route" : "Route"}
                               </button>
+                            )}
+                            {editingItems[item.id] && item.routeStop && (
+                              <input
+                                aria-label="Route number"
+                                className="route-order-input"
+                                min={1}
+                                type="number"
+                                value={item.routeOrder || 1}
+                                onChange={(event) => updateItemRouteOrder(day.id, item.id, Number(event.target.value))}
+                              />
                             )}
                             {item.maps && (
                               <a className="maps-link" href={mapsSearchUrl(item.maps)} target="_blank" rel="noreferrer">
@@ -1237,28 +1197,15 @@ export default function Home() {
               {displayRoutePoints.length > 1 && <p className="route-status">Distance: ~{Math.round(routeDistance)} km</p>}
             </div>
             <div className="map-toolbar-controls">
+              <button className="mobile-menu-toggle" onClick={openDaysDrawer} type="button" aria-label="Open days menu">
+                ☰
+              </button>
               <div className="segmented">
                 <button className={routeScope === "day" ? "active" : ""} onClick={() => setRouteScope("day")} type="button">
                   Day
                 </button>
                 <button className={routeScope === "trip" ? "active" : ""} onClick={() => setRouteScope("trip")} type="button">
                   Trip
-                </button>
-              </div>
-              <div className="segmented">
-                <button
-                  className={routeOrderMode === "itinerary" ? "active" : ""}
-                  onClick={() => setRouteOrderMode("itinerary")}
-                  type="button"
-                >
-                  Itinerary
-                </button>
-                <button
-                  className={routeOrderMode === "distance" ? "active" : ""}
-                  onClick={() => setRouteOrderMode("distance")}
-                  type="button"
-                >
-                  Best distance
                 </button>
               </div>
             </div>
