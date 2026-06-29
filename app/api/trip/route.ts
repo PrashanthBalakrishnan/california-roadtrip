@@ -75,8 +75,9 @@ export async function GET() {
     const { days = [], flights = [], stays = [], tasks = [] } = document;
     const summary = normalizeSummary(document.summary);
     return NextResponse.json({ data: { summary, days, flights, stays, tasks } });
-  } catch {
-    return NextResponse.json({ error: "Failed to load trip data." }, { status: 500 });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Failed to load trip data.";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
 
@@ -105,7 +106,8 @@ export async function PUT(request: Request) {
     );
 
     return NextResponse.json({ ok: true });
-  } catch {
-    return NextResponse.json({ error: "Failed to save trip data." }, { status: 500 });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Failed to save trip data.";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

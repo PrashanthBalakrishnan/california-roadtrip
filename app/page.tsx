@@ -470,6 +470,7 @@ export default function Home() {
   const [dynamicCoordinates, setDynamicCoordinates] = useState<CoordinatesMap>({});
   const [isResolvingRoute, setIsResolvingRoute] = useState(false);
   const [isHydrated, setIsHydrated] = useState(false);
+  const [canPersist, setCanPersist] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   useEffect(() => {
@@ -494,7 +495,10 @@ export default function Home() {
         const payload = (await response.json()) as { data?: Partial<StoredState> | null };
         if (payload?.data) {
           applyState(payload.data);
-          if (!cancelled) setIsHydrated(true);
+          if (!cancelled) {
+            setCanPersist(true);
+            setIsHydrated(true);
+          }
           return;
         }
       } catch {
@@ -502,7 +506,10 @@ export default function Home() {
       }
 
       applyState(localState);
-      if (!cancelled) setIsHydrated(true);
+      if (!cancelled) {
+        setCanPersist(Boolean(localState));
+        setIsHydrated(true);
+      }
     }
 
     void hydrateFromDatabase();
@@ -513,7 +520,7 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    if (!isHydrated) return;
+    if (!isHydrated || !canPersist) return;
 
     const payload: StoredState = { summary, days, flights, stays, tasks };
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
@@ -529,7 +536,7 @@ export default function Home() {
     }, 500);
 
     return () => window.clearTimeout(timeout);
-  }, [days, flights, isHydrated, stays, summary, tasks]);
+  }, [canPersist, days, flights, isHydrated, stays, summary, tasks]);
 
   useEffect(() => {
     if (typeof document === "undefined") return;
@@ -821,9 +828,6 @@ export default function Home() {
           <h1>{summary.title}</h1>
           <p>{summary.dates} - {summary.travelers}</p>
         </div>
-        <a className="primary-link" href={openMapUrl} target="_blank" rel="noreferrer">
-          Open in OpenStreetMap
-        </a>
       </section>
 
       {isMobileMenuOpen && <button className="planner-backdrop" aria-label="Close days menu" onClick={closeDaysDrawer} type="button" />}
